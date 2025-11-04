@@ -1,7 +1,7 @@
 // /api/products.js
 export default async function handler(req, res) {
   try {
-    const base = process.env.PRODUCTS_URL;
+    const base = process.env.https://script.google.com/macros/s/AKfycbz_SRAMhhOT396196sgEzHeDMNk_oF7IL-M5BpAReKum04hVtkVYw0AwY71P4SyEdm-/exec;
     if (!base) throw new Error('Missing PRODUCTS_URL');
 
     const url = new URL(base);
