@@ -22,9 +22,9 @@ export default async function handler(req, res) {
     const data = await r.json();
     const items = data.items || [];
 
-    const product =
-      items.find(it => it.id === productKey) ||
-      items.find(it => it.name === productKey);
+   const product =
+  items.find(it => String(it.id).trim() === key) ||  // ✅ ID 매칭
+  items.find(it => String(it.name).trim() === key); // fallback: 이름 매칭
 
     if (!product) throw new Error(`상품을 찾을 수 없습니다: ${productKey}`);
 
