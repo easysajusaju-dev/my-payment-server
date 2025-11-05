@@ -1,49 +1,53 @@
+// ✅ NICEPAY Server 승인 (결제창 요청) API
+// 파일 경로: /pages/api/pay/start.js
+
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
+
 export default async function handler(req, res) {
+  // ----- ✅ CORS 허용 -----
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+
+  if (req.method !== "POST") {
+    return res.status(405).json({ error: "Method Not Allowed" });
+  }
+
   try {
-    const { orderId, amount, product } = req.query;
+    const { orderId, goodsName, amount, returnUrl } = req.body;
 
-    if (!orderId || !amount) {
-      return res.status(400).json({ error: "Missing params" });
+    if (!orderId || !amount || !goodsName || !returnUrl) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const clientId = process.env.NICE_CLIENT_ID;
-    const secretKey = process.env.NICE_SECRET_KEY;
+    // ✅ NICEPAY 요청 URL
+    const NICE_URL = "https://pay.nicepay.co.kr/v1/pay";
 
-    // 1) 인증 토큰 발급
-    const tokenRes = await fetch("https://pay.nicepay.co.kr/v1/auth/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientId,
-        secretKey
-      })
-    });
-    const token = await tokenRes.json();
-
-    if (!token?.accessToken) {
-      return res.status(401).json({ error: "Token get failed", details: token });
-    }
-
-    // 2) 결제 생성
-    const payReq = await fetch("https://pay.nicepay.co.kr/v1/payments", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token.accessToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        orderId,
-        amount: Number(amount),
-        goodsName: product,
-        returnUrl: `${process.env.SITE_DOMAIN}/payment-callback.html`
-      })
+    const params = new URLSearchParams({
+      clientId: process.env.NICE_CLIENT_KEY,  // 🔥 환경변수에 넣은 클라이언트 키
+      method: "CARD",
+      orderId,
+      amount,
+      goodsName,
+      returnUrl,
     });
 
-    const payData = await payReq.json();
-    return res.status(200).json(payData);
+    const redirectUrl = `${NICE_URL}?${params.toString()}`;
+
+    console.log("✅ NICE redirect URL:", redirectUrl);
+
+    return res.status(200).json({ redirectUrl });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server Error", detail: err.message });
+    console.error("❌ PAY START ERROR", err);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
 }
