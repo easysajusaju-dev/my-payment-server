@@ -1,20 +1,23 @@
-export async function POST(req) {
-  const body = await req.json();
-  const { orderId, goodsName, amount, returnUrl } = body;
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
 
-  const response = await fetch("https://api.nicepay.co.kr/v1/payments", {
+  const { orderId, goodsName, amount, returnUrl } = req.body;
+
+  const payload = {
+    amount,
+    orderId,
+    goodsName,
+    returnUrl
+  };
+
+  const rsp = await fetch("https://api.nicepay.co.kr/v1/payments/request", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Basic ${process.env.NICE_SECRET_BASE64}`
     },
-    body: JSON.stringify({
-      orderId,
-      goodsName,
-      amount,
-      returnUrl
-    })
+    body: JSON.stringify(payload)
   }).then(r => r.json());
 
-  return Response.json({ redirectUrl: response.nextUrl });
+  return res.json({ redirectUrl: rsp.nextUrl });
 }
