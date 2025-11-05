@@ -1,13 +1,16 @@
 export async function POST(req) {
-  const body = await req.json();
-  const { authResultCode, authToken, tid, amount, orderId } = body;
+  const form = await req.formData();
 
-  // 실패했을 경우
+  const authResultCode = form.get("authResultCode");
+  const authToken = form.get("authToken");
+  const tid = form.get("tid");
+  const amount = form.get("amount");
+  const orderId = form.get("orderId");
+
   if (authResultCode !== "0000") {
     return Response.redirect("https://easysajusaju-dev.github.io/payment-fail.html");
   }
 
-  // 승인 요청
   const approve = await fetch(`https://api.nicepay.co.kr/v1/payments/${tid}`, {
     method: "POST",
     headers: {
