@@ -1,56 +1,43 @@
 export async function POST(req) {
   try {
-    // ✅ formData 로 받기 (나이스페이 POST 방식)
-    const form = await req.formData();
-    const authResultCode = form.get("authResultCode");
-    const authToken = form.get("authToken");
-    const tid = form.get("tid");
-    const amount = form.get("amount");
+    const body = await req.json();
+    const { authResultCode, authToken, tid, amount } = body;
 
-    console.log("✅ NICE callback:", { authResultCode, authToken, tid, amount });
-
-    // ❌ 인증 실패
+    // 실패면 fail 페이지로
     if (authResultCode !== "0000") {
       return Response.redirect(
-        "https://easysajusaju-dev.github.io/payment-fail.html",
-        302
+        "https://easysajusaju-dev.github.io/payment-fail.html"
       );
     }
 
-    // ✅ 승인 요청 (Server 인증)
-    const secretKey = process.env.NICE_SECRET_BASE64;
-
-    const approveRes = await fetch(`https://api.nicepay.co.kr/v1/payments/${tid}`, {
+    // ✅ 승인 요청
+    const approve = await fetch(`https://api.nicepay.co.kr/v1/payments/${tid}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Basic ${secretKey}`
+        "Authorization": `Basic ${process.env.NICE_SECRET_BASE64}`
       },
       body: JSON.stringify({
-        amount: Number(amount)
+        amount: amount
       })
-    });
+    }).then(r => r.json());
 
-    const approve = await approveRes.json();
-    console.log("✅ NICE approve:", approve);
-
+    // ✅ 승인 성공 → thankyou 이동
     if (approve.resultCode === "0000") {
-      // ✅ 성공 → redirect
       return Response.redirect(
-        `https://easysajusaju-dev.github.io/thankyou.html?oid=${approve.orderId}&amount=${approve.amount}`,
-        302
-      );
-    } else {
-      return Response.redirect(
-        "https://easysajusaju-dev.github.io/payment-fail.html",
-        302
+        `https://easysajusaju-dev.github.io/thankyou.html?oid=${approve.orderId}&amount=${approve.amount}`
       );
     }
-  } catch (e) {
-    console.error("❌ Callback error:", e);
+
+    // 승인 실패
     return Response.redirect(
-      "https://easysajusaju-dev.github.io/payment-fail.html",
-      302
+      "https://easysajusaju-dev.github.io/payment-fail.html"
+    );
+
+  } catch (e) {
+    console.error(e);
+    return Response.redirect(
+      "https://easysajusaju-dev.github.io/payment-fail.html"
     );
   }
 }
