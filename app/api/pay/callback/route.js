@@ -17,7 +17,7 @@ export async function POST(req) {
       "Content-Type": "application/json",
       "Authorization": `Basic ${secret}`
     },
-    body: JSON.stringify({ amount })
+    body: JSON.stringify({ amount: Number(amount) })
   });
   
   const result = await approve.json();
