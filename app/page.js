@@ -1,0 +1,3 @@
+export default function Home() {
+  return <div>Server Alive ✅</div>;
+}
