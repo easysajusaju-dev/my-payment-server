@@ -1,48 +1,42 @@
 // app/api/pay/start/route.js
-export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
-
+export async function POST(req) {
   try {
-    const { orderId, goodsName, amount: clientAmount, returnUrl } = req.body || {};
+    const { orderId, goodsName, amount, returnUrl } = await req.json();
 
-    if (!orderId) return res.status(400).json({ error: "orderId is required" });
-    if (!goodsName) return res.status(400).json({ error: "goodsName is required" });
+    // ✅ Step 1. 시트에 등록된 금액 확인
+    const verifyRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "https://my-payment-server.vercel.app"}/api/pay/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ goodsName }),
+    });
 
-    // ✅ Products API 호출해서 검증된 가격 가져오기
-    const base =
-      process.env.BASE_URL?.replace(/\/$/, "") ||
-      "https://my-payment-server.vercel.app"; // ← 당신의 실제 vercel 주소로 수정 가능
+    const verifyData = await verifyRes.json();
+    if (!verifyData.ok) {
+      return Response.json(
+        { ok: false, error: `상품 검증 실패: ${verifyData.error}` },
+        { status: 400 }
+      );
+    }
 
-    const productsUrl = `${base}/api/products?goodsName=${encodeURIComponent(
-      goodsName
-    )}`;
+    // ✅ Step 2. 검증된 금액과 요청 금액 비교
+    if (Number(verifyData.verifiedAmount) !== Number(amount)) {
+      return Response.json(
+        {
+          ok: false,
+          error: `요청 금액(${amount})이 실제 금액(${verifyData.verifiedAmount})과 일치하지 않습니다.`,
+        },
+        { status: 400 }
+      );
+    }
 
-    const r = await fetch(productsUrl, { method: "GET", cache: "no-store" });
-    if (!r.ok) throw new Error(`Products API Error: ${r.status}`);
-
-    const data = await r.json();
-    if (!data.ok || !Array.isArray(data.items) || data.items.length === 0)
-      throw new Error(`Product not found for ${goodsName}`);
-
-    // ✅ price 필드에서 금액 추출
-    const verifiedAmount = Number(data.items[0].price);
-    if (!Number.isFinite(verifiedAmount) || verifiedAmount <= 0)
-      throw new Error("Invalid price value");
-
-    // ✅ 검증된 금액으로 덮어쓰기
+    // ✅ Step 3. PG사로 결제 요청
     const payload = {
-      amount: verifiedAmount,
+      amount: verifyData.verifiedAmount,
       orderId,
       goodsName,
-      returnUrl:
-        returnUrl ||
-        process.env.DEFAULT_RETURN_URL ||
-        `${base}/api/pay/callback`,
+      returnUrl: returnUrl || process.env.DEFAULT_RETURN_URL,
     };
 
-    console.log(`[SECURE] 결제 요청: ${goodsName} (${verifiedAmount}원)`);
-
-    // ✅ NICE 결제 요청
     const rsp = await fetch("https://api.nicepay.co.kr/v1/payments/request", {
       method: "POST",
       headers: {
@@ -50,19 +44,15 @@ export default async function handler(req, res) {
         Authorization: `Basic ${process.env.NICE_SECRET_BASE64}`,
       },
       body: JSON.stringify(payload),
-    });
+    }).then((r) => r.json());
 
-    if (!rsp.ok) {
-      const text = await rsp.text().catch(() => "");
-      throw new Error(`NICE request failed: ${rsp.status} ${text}`);
-    }
-
-    const j = await rsp.json();
-    return res.status(200).json({ redirectUrl: j.nextUrl, raw: j });
+    // ✅ Step 4. PG 응답 반환
+    return Response.json({ ok: true, redirectUrl: rsp.nextUrl || rsp.redirectUrl });
   } catch (err) {
-    console.error("start route error:", err);
-    return res
-      .status(500)
-      .json({ error: "internal_error", detail: String(err.message || err) });
+    console.error("❌ start/pay error:", err);
+    return Response.json(
+      { ok: false, error: "결제 시작 중 서버 오류", detail: err.message },
+      { status: 500 }
+    );
   }
 }
