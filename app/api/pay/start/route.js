@@ -1,75 +1,47 @@
 // app/api/pay/start/route.js
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-// ✅ OPTIONS (CORS Preflight) 처리
 export async function OPTIONS() {
-  return new Response(null, { status: 204, headers: corsHeaders });
+  // ✅ Preflight (CORS) 요청 대응
+  return new Response(null, {
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
 }
 
-// ✅ POST 처리
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { orderId, goodsName, returnUrl } = body || {};
+    const { orderId, goodsName, amount, returnUrl } = await req.json();
 
-    if (!goodsName) {
-      const res = new Response(
-        JSON.stringify({ ok: false, error: "상품명이 누락되었습니다." }),
-        { status: 400 }
-      );
-      Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-      return res;
-    }
-
-    // ✅ 시트에서 검증
-    const base =
-      process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ||
-      "https://my-payment-server.vercel.app";
-
-    const verifyRes = await fetch(`${base}/api/pay/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ goodsName }),
-    });
+    // ✅ 시트 상품 검증
+    const verifyRes = await fetch(
+      `${process.env.NEXT_PUBLIC_BASE_URL || "https://my-payment-server.vercel.app"}/api/pay/verify`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ goodsName }),
+      }
+    );
 
     const verifyData = await verifyRes.json();
     if (!verifyData.ok) {
-      const res = new Response(
-        JSON.stringify({
-          ok: false,
-          error: "상품 검증 실패",
-          detail: verifyData,
-        }),
-        { status: 400 }
-      );
-      Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-      return res;
+      return new Response(JSON.stringify({ ok: false, error: "상품 검증 실패" }), {
+        status: 400,
+        headers: { "Access-Control-Allow-Origin": "*" },
+      });
     }
 
-    const verifiedAmount = Number(verifyData.verifiedAmount);
-    if (!verifiedAmount) {
-      const res = new Response(
-        JSON.stringify({ ok: false, error: "금액 오류" }),
-        { status: 400 }
-      );
-      Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-      return res;
-    }
+    // ✅ 조작방지 — 시트 금액 강제 사용
+    const finalAmount = Number(verifyData.verifiedAmount);
 
-    // ✅ NICEPAY 결제 요청
     const payload = {
-      amount: verifiedAmount,
+      amount: finalAmount,
       orderId,
       goodsName,
-      returnUrl:
-        returnUrl ||
-        process.env.DEFAULT_RETURN_URL ||
-        `${base}/api/pay/callback`,
+      returnUrl: returnUrl || process.env.DEFAULT_RETURN_URL,
     };
 
     const rsp = await fetch("https://api.nicepay.co.kr/v1/payments/request", {
@@ -79,30 +51,17 @@ export async function POST(req) {
         Authorization: `Basic ${process.env.NICE_SECRET_BASE64}`,
       },
       body: JSON.stringify(payload),
+    }).then((r) => r.json());
+
+    return new Response(JSON.stringify({ ok: true, redirectUrl: rsp.nextUrl || rsp.redirectUrl }), {
+      status: 200,
+      headers: { "Access-Control-Allow-Origin": "*" },
     });
-
-    const data = await rsp.json();
-
-    const res = new Response(
-      JSON.stringify({
-        ok: true,
-        redirectUrl: data.nextUrl || data.redirectUrl,
-        verifiedAmount,
-      }),
-      { status: 200 }
-    );
-    Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-    return res;
   } catch (err) {
-    const res = new Response(
-      JSON.stringify({
-        ok: false,
-        error: "서버 오류",
-        detail: String(err.message || err),
-      }),
-      { status: 500 }
-    );
-    Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-    return res;
+    console.error("❌ start/pay error:", err);
+    return new Response(JSON.stringify({ ok: false, error: err.message }), {
+      status: 500,
+      headers: { "Access-Control-Allow-Origin": "*" },
+    });
   }
 }
