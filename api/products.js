@@ -7,8 +7,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
-    const url = process.env.PRODUCTS_URL 
-      || 'https://script.google.com/macros/s/AKfycbwX6UPs_IaiyaHGMBdRrwUzoaAoe5EjM0JifNgw4K7DNPDX84QPfvwh16YAs0KhaRfx-g/exec';
+    const url =
+      process.env.PRODUCTS_URL ||
+      'https://script.google.com/macros/s/AKfycbwX6UPs_IaiyaHGMBdRrwUzoaAoe5EjM0JifNgw4K7DNPDX84QPfvwh16YAs0KhaRfx-g/exec';
 
     const r = await fetch(url, { method: 'GET', cache: 'no-store' });
     if (!r.ok) throw new Error(`Apps Script error: ${r.status}`);
@@ -18,19 +19,20 @@ export default async function handler(req, res) {
 
     let items = Array.isArray(data.items) ? data.items : [];
 
-    // ✅ URL 파라미터에서 category 읽기 (기존)
+    // ✅ category로 필터 (기존 랜딩폼 유지)
     const category = req.query.category;
     if (category) {
-      items = items.filter(it => String(it.category).trim() === String(category).trim());
+      items = items.filter(
+        it => String(it.category).trim() === String(category).trim()
+      );
     }
 
-    // ✅ URL 파라미터에서 goodsName 읽기 (새로 추가)
-    // 예: /api/products?goodsName=사주상담A
+    // ✅ goodsName(상품명)으로 필터 (결제 서버에서 사용)
+    // 예: /api/products?goodsName=종합사주
     const goodsName = req.query.goodsName;
     if (goodsName) {
       const target = String(goodsName).trim();
       items = items.filter(it => {
-        // 가능한 필드명들로 비교: name, goodsName, productName 등 (내부 데이터 형식에 맞춰 확장)
         const candidates = [
           it.name,
           it.goodsName,
@@ -40,6 +42,13 @@ export default async function handler(req, res) {
         return candidates.some(c => String(c).trim() === target);
       });
     }
+
+    return res.status(200).json({ ok: true, items });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+}
+
 
     return res.status(200).json({ ok: true, items });
   } catch (err) {
