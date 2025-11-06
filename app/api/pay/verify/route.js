@@ -1,28 +1,35 @@
 // app/api/pay/start/route.js
+
+// 🔐 GitHub Pages → Vercel API 호출 허용 CORS 헤더
+const corsHeaders = {
+  // 필요하면 "*" 대신 정확한 오리진을 넣어도 됩니다.
+  // "Access-Control-Allow-Origin": "https://easysajusaju-dev.github.io",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+// ✅ App Router에서는 OPTIONS를 "별도"로 export 해야 CORS preflight가 통과됩니다.
+export function OPTIONS() {
+  return new Response(null, { status: 204, headers: corsHeaders });
+}
+
 export async function POST(req) {
-  // ✅ ① CORS 허용 (GitHub Pages → Vercel 간 호출 가능하게)
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-
-  // ✅ ② 브라우저 사전요청(OPTIONS) 처리
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 204, headers });
-  }
-
   try {
-    // ✅ 요청 본문 읽기
     const body = await req.json();
     const { orderId, goodsName, returnUrl } = body || {};
 
     if (!goodsName) {
-      return Response.json({ ok: false, error: "상품명이 누락되었습니다." }, { status: 400, headers });
+      return Response.json(
+        { ok: false, error: "상품명이 누락되었습니다." },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
-    // ✅ 시트에서 금액 검증 (항상 서버에서 가격 확인)
-    const base = process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") || "https://my-payment-server.vercel.app";
+    // 1) 시트 가격 확인
+    const base =
+      process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ||
+      "https://my-payment-server.vercel.app";
 
     const verifyRes = await fetch(`${base}/api/pay/verify`, {
       method: "POST",
@@ -34,21 +41,27 @@ export async function POST(req) {
     if (!verifyData.ok) {
       return Response.json(
         { ok: false, error: "상품 검증 실패", detail: verifyData },
-        { status: 400, headers }
+        { status: 400, headers: corsHeaders }
       );
     }
 
     const verifiedAmount = Number(verifyData.verifiedAmount);
-    if (!verifiedAmount) {
-      return Response.json({ ok: false, error: "유효하지 않은 금액" }, { status: 400, headers });
+    if (!Number.isFinite(verifiedAmount) || verifiedAmount <= 0) {
+      return Response.json(
+        { ok: false, error: "유효하지 않은 금액" },
+        { status: 400, headers: corsHeaders }
+      );
     }
 
-    // ✅ PG사로 결제 요청 (검증된 금액 사용)
+    // 2) 검증 금액으로만 PG 요청
     const payload = {
       amount: verifiedAmount,
       orderId,
       goodsName,
-      returnUrl: returnUrl || process.env.DEFAULT_RETURN_URL || `${base}/api/pay/callback`,
+      returnUrl:
+        returnUrl ||
+        process.env.DEFAULT_RETURN_URL ||
+        `${base}/api/pay/callback`,
     };
 
     const rsp = await fetch("https://api.nicepay.co.kr/v1/payments/request", {
@@ -60,19 +73,30 @@ export async function POST(req) {
       body: JSON.stringify(payload),
     });
 
+    if (!rsp.ok) {
+      const txt = await rsp.text().catch(() => "");
+      return Response.json(
+        { ok: false, error: "PG 요청 실패", detail: txt },
+        { status: 502, headers: corsHeaders }
+      );
+    }
+
     const data = await rsp.json();
 
-    // ✅ ③ 응답 반환 (결제창으로 리디렉션 URL)
+    // 3) 프론트로 결제창 URL 반환
     return Response.json(
-      { ok: true, redirectUrl: data.nextUrl || data.redirectUrl, verifiedAmount },
-      { headers }
+      {
+        ok: true,
+        redirectUrl: data.nextUrl || data.redirectUrl,
+        verifiedAmount,
+      },
+      { headers: corsHeaders }
     );
-
   } catch (err) {
-    console.error("❌ 결제 시작 오류:", err);
+    console.error("❌ /api/pay/start error:", err);
     return Response.json(
-      { ok: false, error: "결제 시작 중 서버 오류 발생", detail: err.message },
-      { status: 500, headers }
+      { ok: false, error: "서버 오류", detail: String(err?.message || err) },
+      { status: 500, headers: corsHeaders }
     );
   }
 }
