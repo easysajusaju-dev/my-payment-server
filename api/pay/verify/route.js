@@ -1,11 +1,9 @@
 // app/api/pay/verify/route.js
-export default async function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).send("Method Not Allowed");
-
+export async function POST(req) {
   try {
-    const { goodsName } = req.body || {};
+    const { goodsName } = await req.json();
     if (!goodsName) {
-      return res.status(400).json({ ok: false, error: "상품명이 누락되었습니다." });
+      return Response.json({ ok: false, error: "상품명이 누락되었습니다." }, { status: 400 });
     }
 
     // ✅ products.js의 Google Apps Script 주소 그대로 사용
@@ -27,30 +25,31 @@ export default async function handler(req, res) {
     );
 
     if (!target) {
-      return res.status(404).json({
-        ok: false,
-        error: `상품 "${goodsName}"을(를) 시트에서 찾을 수 없습니다.`,
-      });
+      return Response.json(
+        { ok: false, error: `상품 "${goodsName}"을(를) 시트에서 찾을 수 없습니다.` },
+        { status: 404 }
+      );
     }
 
     // ✅ price 필드에서 금액 추출
     const verifiedAmount = Number(target.price);
     if (!Number.isFinite(verifiedAmount) || verifiedAmount <= 0) {
-      return res.status(400).json({
-        ok: false,
-        error: "시트에서 유효한 가격 정보를 찾지 못했습니다.",
-      });
+      return Response.json(
+        { ok: false, error: "시트에서 유효한 가격 정보를 찾지 못했습니다." },
+        { status: 400 }
+      );
     }
 
-    return res.status(200).json({
+    return Response.json({
       ok: true,
       goodsName: target.name,
       verifiedAmount,
     });
   } catch (err) {
     console.error("❌ verify error:", err);
-    return res
-      .status(500)
-      .json({ ok: false, error: "서버 내부 오류", detail: err.message });
+    return Response.json(
+      { ok: false, error: "서버 내부 오류", detail: err.message },
+      { status: 500 }
+    );
   }
 }
