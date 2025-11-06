@@ -1,108 +1,54 @@
-// app/api/pay/start/route.js
+// app/api/pay/verify/route.js
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type",
-};
-
-// ✅ OPTIONS (CORS Preflight) 처리
-export async function OPTIONS() {
-  return new Response(null, { status: 204, headers: corsHeaders });
-}
-
-// ✅ POST 처리
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { orderId, goodsName, returnUrl } = body || {};
+    const { goodsName } = await req.json();
 
     if (!goodsName) {
-      const res = new Response(
-        JSON.stringify({ ok: false, error: "상품명이 누락되었습니다." }),
+      return Response.json(
+        { ok: false, error: "상품명이 누락되었습니다." },
         { status: 400 }
       );
-      Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-      return res;
     }
 
-    // ✅ 시트에서 검증
-    const base =
-      process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "") ||
-      "https://my-payment-server.vercel.app";
+    // ✅ 시트 데이터 가져오기
+    const sheetUrl =
+      process.env.PRODUCTS_URL ||
+      "https://script.google.com/macros/s/AKfycbwX6UPs_IaiyaHGMBdRrwUzoaAoe5EjM0JifNgw4K7DNPDX84QPfvwh16YAs0KhaRfx-g/exec";
 
-    const verifyRes = await fetch(`${base}/api/pay/verify`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ goodsName }),
-    });
+    const r = await fetch(sheetUrl, { method: "GET", cache: "no-store" });
+    if (!r.ok) throw new Error(`Apps Script error: ${r.status}`);
 
-    const verifyData = await verifyRes.json();
-    if (!verifyData.ok) {
-      const res = new Response(
-        JSON.stringify({
-          ok: false,
-          error: "상품 검증 실패",
-          detail: verifyData,
-        }),
-        { status: 400 }
-      );
-      Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-      return res;
-    }
+    const data = await r.json();
+    if (!data.ok) throw new Error(data.error || "products fetch failed");
 
-    const verifiedAmount = Number(verifyData.verifiedAmount);
-    if (!verifiedAmount) {
-      const res = new Response(
-        JSON.stringify({ ok: false, error: "금액 오류" }),
-        { status: 400 }
-      );
-      Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-      return res;
-    }
+    const items = Array.isArray(data.items) ? data.items : [];
 
-    // ✅ NICEPAY 결제 요청
-    const payload = {
-      amount: verifiedAmount,
-      orderId,
-      goodsName,
-      returnUrl:
-        returnUrl ||
-        process.env.DEFAULT_RETURN_URL ||
-        `${base}/api/pay/callback`,
-    };
-
-    const rsp = await fetch("https://api.nicepay.co.kr/v1/payments/request", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${process.env.NICE_SECRET_BASE64}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    const data = await rsp.json();
-
-    const res = new Response(
-      JSON.stringify({
-        ok: true,
-        redirectUrl: data.nextUrl || data.redirectUrl,
-        verifiedAmount,
-      }),
-      { status: 200 }
+    // ✅ goodsName으로 정확히 매칭
+    const match = items.find(
+      (it) =>
+        String(it.name).trim() === String(goodsName).trim() ||
+        String(it.goodsName).trim() === String(goodsName).trim()
     );
-    Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-    return res;
+
+    if (!match) {
+      return Response.json(
+        { ok: false, error: `상품 '${goodsName}'을(를) 찾을 수 없습니다.` },
+        { status: 404 }
+      );
+    }
+
+    // ✅ 시트의 실제 금액 반환
+    return Response.json({
+      ok: true,
+      goodsName: match.name || match.goodsName,
+      verifiedAmount: Number(match.price),
+    });
   } catch (err) {
-    const res = new Response(
-      JSON.stringify({
-        ok: false,
-        error: "서버 오류",
-        detail: String(err.message || err),
-      }),
+    console.error("❌ verify error:", err);
+    return Response.json(
+      { ok: false, error: "서버 오류", detail: String(err?.message || err) },
       { status: 500 }
     );
-    Object.entries(corsHeaders).forEach(([k, v]) => res.headers.append(k, v));
-    return res;
   }
 }
