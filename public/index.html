@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>결제 완료 - 이지사주</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+:root {
+  --primary-color: #4a5a73;
+  --text-dark: #212529;
+  --text-light: #6C757D;
+  --bg-light: #f8f9fa;
+  --border-color: #dee2e6;
+}
+body {
+  margin: 0;
+  font-family: 'Noto Sans KR', sans-serif;
+  background-color: var(--bg-light);
+  color: var(--text-dark);
+  -webkit-font-smoothing: antialiased;
+}
+.wrapper {
+  max-width: 480px;
+  margin: 0 auto;
+  background-color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border-color);
+}
+.banner {
+  position: relative;
+  height: 140px;
+  color: #fff;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.banner .bg-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.banner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: background:linear-gradient(to right,rgba(29,43,80,.7),rgba(44,62,80,.4));
+  z-index:2;
+}
+.banner .text-content { position: relative; }
+.banner .title { font-size: 1.8rem; font-weight: 700; margin: .2rem 0; }
+main { padding: 2rem 1.5rem; text-align: center; }
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 2rem 1.5rem;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+}
+.card h2 {
+  font-size: 1.3rem;
+  margin-bottom: 1rem;
+}
+.card p {
+  font-size: 0.95rem;
+  color: var(--text-light);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+.info-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.3rem 0;
+  font-size: 0.95rem;
+}
+.info-line span.label { color: var(--text-light); }
+.info-line span.value { font-weight: 700; color: var(--primary-color); }
+.btn-primary {
+  background: var(--primary-color);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: .9rem 1rem;
+  width: 100%;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+.footer {
+  padding: 2rem 1rem;
+  background-color: var(--bg-light);
+  text-align: center;
+}
+.social-icons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.social-icons a img {
+  height: 28px;
+  width: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+.social-icons a:hover img { opacity: 1; }
+.footer-links { font-size: 0.9rem; margin-bottom: 0.5rem; }
+.footer-links a { color: var(--text-dark); text-decoration: none; }
+.link-divider { margin: 0 0.5rem; color: var(--border-color); }
+.info-toggle {
+  cursor: pointer;
+  color: var(--text-light);
+  font-size: 0.9rem;
+  margin-top: 1rem;
+}
+.info-details {
+  display: none;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-light);
+  line-height: 1.6;
+  background-color: #f1f3f5;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+}
+.info-details.show { display: block; }
+.copyright { font-size: 0.75rem; color: #adb5bd; margin-top: 1.5rem; }
+</style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <header class="header">
+      <h1>결제 완료</h1>
+    </header>
+
+    <div class="banner">
+      <img src="/images/card-individual.png" class="bg-img" alt="">
+      <div class="text-content">
+        <p class="subtitle">당신의 운명을 풀어내는 곳</p>
+        <h2 class="title">이지사주</h2>
+        <p class="desc">결제가 정상적으로 완료되었습니다</p>
+      </div>
+    </div>
+
+    <main>
+      <div class="card">
+        <h2>복채 결제가 완료되었습니다 🙏</h2>
+        <p>신청하신 상담 정보와 결제 내역이 정상적으로 접수되었습니다.<br>순차적으로 분석이 진행되며, 완료 시 카카오톡 또는 이메일로 안내드립니다.</p>
+        <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid var(--border-color);">
+        <div class="info-line"><span class="label">🧾 상품명:</span><span class="value" id="product-name">-</span></div>
+        <div class="info-line"><span class="label">💳 결제금액:</span><span class="value" id="product-price">-</span></div>
+        <div class="info-line"><span class="label">🧩 주문번호:</span><span class="value" id="order-id">-</span></div>
+        <button class="btn-primary" onclick="location.href='https://easysajusaju-dev.github.io/'">홈으로 돌아가기</button>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="social-icons">
+        <a href="http://pf.kakao.com/_xkAevn" target="_blank"><img src="images/kakaotalk.png" alt="카카오채널"></a>
+        <a href="https://www.threads.net/@easy.saju" target="_blank"><img src="images/threads.png" alt="스레드"></a>
+        <a href="https://www.instagram.com/easy.saju" target="_blank"><img src="images/instagram.png" alt="인스타"></a>
+        <a href="https://www.youtube.com/channel/UCLQGqG5Vy2WcTaKbvYOwHLA?sub_confirmation=1" target="_blank"><img src="images/youtube.png" alt="유튜브"></a>
+        <a href="https://www.tiktok.com/@easysaju" target="_blank"><img src="images/tiktok.png" alt="틱톡"></a>
+      </div>
+
+      <div class="footer-links">
+        <a href="terms.html">이용약관</a>
+        <span class="link-divider">·</span>
+        <a href="privacy.html">개인정보처리방침</a>
+      </div>
+
+      <div class="info-toggle" id="info-toggle-button">이지사주 사업자정보 <span id="info-arrow">▼</span></div>
+      <div class="info-details" id="business-info-details">
+        <p>상호명: 이지사주 | 대표: 안미정</p>
+        <p>사업자등록번호: 550-64-00884</p>
+        <p>통신판매번호: 제2025-고양일산동-1332호</p>
+        <p>이메일: easysaju.saju@gmail.com</p>
+        <p>전화: 010-2151-3949</p>
+      </div>
+
+      <p class="copyright">© 2025 이지사주. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <script>
+    // URL 파라미터 불러오기
+    const params = new URLSearchParams(window.location.search);
+    const product = decodeURIComponent(params.get("product") || "상품 정보 없음");
+    const price = Number(params.get("price") || 0).toLocaleString() + "원";
+    const oid = params.get("oid") || "-";
+
+    document.getElementById("product-name").textContent = product;
+    document.getElementById("product-price").textContent = price;
+    document.getElementById("order-id").textContent = oid;
+
+    // 사업자정보 토글
+    document.getElementById('info-toggle-button').addEventListener('click', () => {
+      const details = document.getElementById('business-info-details');
+      const arrow = document.getElementById('info-arrow');
+      details.classList.toggle('show');
+      arrow.textContent = details.classList.contains('show') ? '▲' : '▼';
+    });
+  </script>
+</body>
+</html>
