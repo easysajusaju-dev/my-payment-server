@@ -1,8 +1,10 @@
-// === NICEPAY Callback (포스타트 최종 완성: ediDate ISO 포함) ===
+// === NICEPAY 포스타트 최종 확정 콜백 ===
+// Signature = sha256(AuthToken + MID + Amt + MerchantKey)
 
 import { createHmac } from "crypto";
 
-const NICE_SECRET_BASE64 = process.env.NICE_SECRET_BASE64;
+const NICE_SECRET_KEY = process.env.NICE_SECRET_KEY; // 발급받은 MerchantKey
+const NICE_CLIENT_ID = process.env.NICE_CLIENT_ID;   // MID (가맹점 ID)
 const SITE_DOMAIN = process.env.SITE_DOMAIN || "https://www.easysaju.kr";
 const APPS_SCRIPT_URL =
   process.env.APPS_SCRIPT_URL ||
@@ -38,9 +40,11 @@ export async function POST(req) {
   const amount = Number(form.get("amount") || 0);
   const goodsName = form.get("goodsName") || "";
   const orderId = form.get("orderId") || "";
+  const signature = form.get("signature") || "";
 
-  log("Auth result:", { authResultCode, tid, orderId, amount, goodsName });
+  log("Auth result:", { authResultCode, tid, orderId, amount, goodsName, signature });
 
+  // ✅ 결제 실패 또는 취소
   if (authResultCode !== "0000") {
     await updateSheet({ orderId, payStatus: "결제취소" });
     const failUrl = `${SITE_DOMAIN}/payment-fail.html`;
@@ -49,15 +53,32 @@ export async function POST(req) {
   }
 
   try {
-    const secretBase64 = NICE_SECRET_BASE64;
-    if (!secretBase64) throw new Error("NICE_SECRET_BASE64 is missing");
+    // ✅ 포스타트 전용: 서명 검증
+    const merchantKey = NICE_SECRET_KEY;
+    const MID = NICE_CLIENT_ID;
+    const expectedSig = createHmac("sha256", merchantKey)
+      .update(authToken + MID + amount)
+      .digest("hex");
+
+    log("[SIG DEBUG] AuthToken:", authToken);
+    log("[SIG DEBUG] MID:", MID);
+    log("[SIG DEBUG] amount:", amount);
+    log("[SIG DEBUG] expectedSig:", expectedSig);
+    log("[SIG DEBUG] receivedSig:", signature);
+
+    if (expectedSig !== signature) {
+      await updateSheet({ orderId, payStatus: "서명불일치" });
+      const failUrl = `${SITE_DOMAIN}/payment-fail.html`;
+      log("❌ Signature mismatch. Redirect:", failUrl);
+      return Response.redirect(failUrl);
+    }
 
     // ✅ 승인 API 호출
     const approveRes = await fetch(`https://api.nicepay.co.kr/v1/payments/${tid}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Basic ${secretBase64}`,
+        Authorization: `Basic ${Buffer.from(MID + ":" + merchantKey).toString("base64")}`,
       },
       body: JSON.stringify({ amount }),
     });
@@ -69,27 +90,6 @@ export async function POST(req) {
       await updateSheet({ orderId, payStatus: "결제실패" });
       const failUrl = `${SITE_DOMAIN}/payment-fail.html`;
       log("Approve failed. Redirect:", failUrl, "detail:", result);
-      return Response.redirect(failUrl);
-    }
-
-    // ✅ 최종 서명 검증 (확정: tid + orderId + amount + ediDate)
-    const merchantKey = Buffer.from(secretBase64, "base64").toString("utf8");
-    const ediDate = (result.ediDate || "").trim(); // 반드시 그대로 사용
-    const combined = `${result.tid}${result.orderId}${result.amount}${ediDate}`;
-    const expectedSig = createHmac("sha256", merchantKey)
-      .update(Buffer.from(combined, "utf8"))
-      .digest("hex");
-    const receivedSig = (result.signature || "").trim();
-
-    log("[SIG DEBUG] combined:", combined);
-    log("[SIG DEBUG] ediDate:", ediDate);
-    log("[SIG DEBUG] receivedSig:", receivedSig);
-    log("[SIG DEBUG] expectedSig:", expectedSig);
-
-    if (!receivedSig || receivedSig !== expectedSig) {
-      await updateSheet({ orderId, payStatus: "서명불일치" });
-      const failUrl = `${SITE_DOMAIN}/payment-fail.html`;
-      log("❌ Signature mismatch. Redirect:", failUrl);
       return Response.redirect(failUrl);
     }
 
