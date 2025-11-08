@@ -1,4 +1,4 @@
-// === NICEPAY Callback (For 포스타트 최종 완성본) ===
+// === NICEPAY Callback (포스타트 최종 완성 서명 ediDate 포함) ===
 
 import { createHmac } from "crypto";
 
@@ -71,13 +71,15 @@ export async function POST(req) {
       return Response.redirect(failUrl);
     }
 
-    // ✅ 서명 검증 (최종 확정: tid + orderId + amount)
+    // ✅ 서명 검증 (최종 확정: tid + orderId + amount + ediDate)
     const merchantKey = Buffer.from(secretBase64, "base64").toString("utf8");
-    const combined = `${result.tid}${result.orderId}${result.amount}`;
+    const ediDate = result.ediDate || "";
+    const combined = `${result.tid}${result.orderId}${result.amount}${ediDate}`;
     const expectedSig = createHmac("sha256", merchantKey).update(combined).digest("hex");
     const receivedSig = result.signature;
 
     log("[SIG DEBUG] combined:", combined);
+    log("[SIG DEBUG] ediDate:", ediDate);
     log("[SIG DEBUG] receivedSig:", receivedSig);
     log("[SIG DEBUG] expectedSig:", expectedSig);
 
