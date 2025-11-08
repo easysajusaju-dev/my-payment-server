@@ -54,6 +54,7 @@ export async function POST(req) {
     console.log("[SIG DEBUG] resultCode:", result.resultCode);
     console.log("[SIG DEBUG] receivedSig:", receivedSig);
     console.log("[SIG DEBUG] expectedSig:", expectedSig);
+    console.log("[SIG DEBUG] combine:", tid + amount + result.resultCode);
 
     // 3) 승인 성공 + 서명 검증
     if (result.resultCode === "0000") {
