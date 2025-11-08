@@ -1,4 +1,4 @@
-// === NICEPAY Callback (포스타트 최종 완성 서명 ediDate 포함) ===
+// === NICEPAY Callback (포스타트 최종 완성: ediDate ISO 포함) ===
 
 import { createHmac } from "crypto";
 
@@ -52,6 +52,7 @@ export async function POST(req) {
     const secretBase64 = NICE_SECRET_BASE64;
     if (!secretBase64) throw new Error("NICE_SECRET_BASE64 is missing");
 
+    // ✅ 승인 API 호출
     const approveRes = await fetch(`https://api.nicepay.co.kr/v1/payments/${tid}`, {
       method: "POST",
       headers: {
@@ -71,12 +72,14 @@ export async function POST(req) {
       return Response.redirect(failUrl);
     }
 
-    // ✅ 서명 검증 (최종 확정: tid + orderId + amount + ediDate)
+    // ✅ 최종 서명 검증 (확정: tid + orderId + amount + ediDate)
     const merchantKey = Buffer.from(secretBase64, "base64").toString("utf8");
-    const ediDate = result.ediDate || "";
+    const ediDate = (result.ediDate || "").trim(); // 반드시 그대로 사용
     const combined = `${result.tid}${result.orderId}${result.amount}${ediDate}`;
-    const expectedSig = createHmac("sha256", merchantKey).update(combined).digest("hex");
-    const receivedSig = result.signature;
+    const expectedSig = createHmac("sha256", merchantKey)
+      .update(Buffer.from(combined, "utf8"))
+      .digest("hex");
+    const receivedSig = (result.signature || "").trim();
 
     log("[SIG DEBUG] combined:", combined);
     log("[SIG DEBUG] ediDate:", ediDate);
@@ -86,7 +89,7 @@ export async function POST(req) {
     if (!receivedSig || receivedSig !== expectedSig) {
       await updateSheet({ orderId, payStatus: "서명불일치" });
       const failUrl = `${SITE_DOMAIN}/payment-fail.html`;
-      log("Signature mismatch. Redirect:", failUrl);
+      log("❌ Signature mismatch. Redirect:", failUrl);
       return Response.redirect(failUrl);
     }
 
@@ -100,7 +103,7 @@ export async function POST(req) {
       orderId
     )}&product=${encodeURIComponent(finalGoods)}&price=${encodeURIComponent(price)}`;
 
-    log("Redirect to Thankyou:", thankUrl);
+    log("✅ Redirect to Thankyou:", thankUrl);
     return Response.redirect(thankUrl);
   } catch (err) {
     log("Callback error:", err?.message || err);
