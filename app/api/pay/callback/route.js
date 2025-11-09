@@ -20,28 +20,42 @@ export async function POST(req) {
     },
     body: JSON.stringify({ amount }),
   });
+
   const result = await approve.json();
 
   // [2] 승인 성공 시 token 저장
   if (result.resultCode === "0000") {
-    const gsURL = "https://script.google.com/macros/s/AKfycbwX6UPs_IaiyaHGMBdRrwUzoaAoe5EjM0JifNgw4K7DNPDX84QPfvwh16YAs0KhaRfx-g/exec"; // 🧩 여기에 Saju-Products-API URL 넣기
+    const gsURL =
+      "https://script.google.com/macros/s/AKfycbwX6UPs_IaiyaHGMBdRrwUzoaAoe5EjM0JifNgw4K7DNPDX84QPfvwh16YAs0KhaRfx-g/exec"; // 🔹 Apps Script Web App URL
 
-    await fetch(gsURL, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    mode: "saveToken",
-    token,
-    orderId,
-    goodsName,
-    amount,
-  }),
-});
+    try {
+      // ✅ Apps Script는 JSON이 아니라 폼형식(x-www-form-urlencoded)으로 보내야 인식됨
+      const bodyData = new URLSearchParams({
+        mode: "saveToken",
+        token,
+        orderId,
+        goodsName,
+        amount,
+      });
 
+      const response = await fetch(gsURL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: bodyData,
+      });
 
+      console.log("✅ Google Script Response:", await response.text());
+    } catch (err) {
+      console.error("❌ saveToken failed:", err);
+    }
+
+    // ✅ 반드시 token 저장 이후 redirect 실행
     const redirectUrl = `https://easysaju.kr/thankyou.html?token=${token}`;
     return Response.redirect(redirectUrl);
   }
 
+  // 승인 실패 시
   return Response.redirect("https://easysaju.kr/payment-fail.html");
 }
