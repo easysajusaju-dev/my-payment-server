@@ -24,7 +24,7 @@ export async function POST(req) {
 
   // [2] 승인 성공 시 token 저장
   if (result.resultCode === "0000") {
-    const gsURL = "https://script.google.com/macros/s/XXXX/exec"; // 🧩 여기에 Saju-Products-API URL 넣기
+    const gsURL = "https://script.google.com/macros/s/AKfycbwX6UPs_IaiyaHGMBdRrwUzoaAoe5EjM0JifNgw4K7DNPDX84QPfvwh16YAs0KhaRfx-g/exec"; // 🧩 여기에 Saju-Products-API URL 넣기
 
     await fetch(gsURL, {
       method: "POST",
