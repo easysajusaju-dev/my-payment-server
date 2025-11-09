@@ -1,57 +1,46 @@
-// /callback/route.js
+import crypto from "crypto";
+
 export async function POST(req) {
   const form = await req.formData();
   const authResultCode = form.get("authResultCode");
-  const authToken = form.get("authToken");
   const tid = form.get("tid");
   const amount = form.get("amount");
-  const goodsName = form.get("goodsName") || "이지사주 상담";
+  const goodsName = form.get("goodsName");
   const orderId = form.get("orderId");
 
   const secret = process.env.NICE_SECRET_BASE64;
+  const token = crypto.randomBytes(12).toString("base64url"); // ✅ 토큰 생성
 
-  if (authResultCode !== "0000") {
-    await fetch("https://script.google.com/macros/s/AKfycbz_SRAMhhOT396196sgEzHeDMNk_oF7IL-M5BpAReKum04hVtkVYw0AwY71P4SyEdm-/exec", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ mode: "updatePayment", orderId, payStatus: "결제취소" }),
-    });
-    return Response.redirect("https://easysajusaju-dev.github.io/payment-fail.html");
-  }
-
-  // ✅ 결제 승인
+  // [1] 결제 승인 요청
   const approve = await fetch(`https://api.nicepay.co.kr/v1/payments/${tid}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Basic ${secret}` },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Basic ${secret}`,
+    },
     body: JSON.stringify({ amount }),
   });
   const result = await approve.json();
 
+  // [2] 승인 성공 시 token 저장
   if (result.resultCode === "0000") {
-    // ✅ 결제 성공 → 토큰 생성
-    const tokenRes = await fetch("https://my-payment-server.vercel.app/api/generate-token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId, product: goodsName, amount }),
-    });
-    const { token } = await tokenRes.json();
+    const gsURL = "https://script.google.com/macros/s/XXXX/exec"; // 🧩 여기에 Saju-Products-API URL 넣기
 
-    // ✅ 결제완료 로그
-    await fetch("https://script.google.com/macros/s/AKfycbz_SRAMhhOT396196sgEzHeDMNk_oF7IL-M5BpAReKum04hVtkVYw0AwY71P4SyEdm-/exec", {
+    await fetch(gsURL, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ mode: "updatePayment", orderId, payStatus: "결제완료" }),
+      body: new URLSearchParams({
+        mode: "saveToken",
+        token,
+        orderId,
+        goodsName,
+        amount,
+      }),
     });
 
-    return Response.redirect(`https://easysajusaju-dev.github.io/thankyou.html?token=${token}`);
+    const redirectUrl = `https://easysaju.kr/thankyou.html?token=${token}`;
+    return Response.redirect(redirectUrl);
   }
 
-  // 승인 실패
-  await fetch("https://script.google.com/macros/s/AKfycbz_SRAMhhOT396196sgEzHeDMNk_oF7IL-M5BpAReKum04hVtkVYw0AwY71P4SyEdm-/exec", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ mode: "updatePayment", orderId, payStatus: "결제실패" }),
-  });
-
-  return Response.redirect("https://easysajusaju-dev.github.io/payment-fail.html");
+  return Response.redirect("https://easysaju.kr/payment-fail.html");
 }
