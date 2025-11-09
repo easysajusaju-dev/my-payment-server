@@ -1,4 +1,4 @@
-// /api/pay/callback/route.js
+// ✅ NICE 결제 승인 + 토큰 저장 완성본
 import crypto from "crypto";
 
 export async function POST(req) {
@@ -6,13 +6,13 @@ export async function POST(req) {
   const authResultCode = form.get("authResultCode");
   const tid = form.get("tid");
   const amount = form.get("amount");
-  const goodsName = form.get("goodsName");
+  const goodsName = form.get("goodsName") || "이지사주 상담";
   const orderId = form.get("orderId");
 
   const secret = process.env.NICE_SECRET_BASE64;
-  const token = crypto.randomBytes(12).toString("base64url");
+  const token = crypto.randomBytes(12).toString("base64url"); // ✅ 토큰 생성
 
-  // [1] 결제 승인 요청
+  // ✅ 결제 승인 요청
   const approve = await fetch(`https://api.nicepay.co.kr/v1/payments/${tid}`, {
     method: "POST",
     headers: {
@@ -24,32 +24,29 @@ export async function POST(req) {
 
   const result = await approve.json();
 
-  // [2] 승인 성공 시 토큰 저장
+  // ✅ 승인 성공
   if (result.resultCode === "0000") {
-    // ✅ 토큰 저장용 Apps Script (Token-Handler-API)
-    const tokenURL = "https://script.google.com/macros/s/AKfycbwNEW_TOKEN_HANDLER_URL/exec";
+    const gsURL = "https://script.google.com/macros/s/AKfycbwX6UPs_IaiyaHGMBdRrwUzoaAoe5EjM0JifNgw4K7DNPDX84QPfvwh16YAs0KhaRfx-g/exec";
 
-    const payload = {
-      mode: "saveToken",
-      token,
-      orderId: result.orderId,
-      goodsName: result.goodsName,
-      amount: result.amount,
-      payDate: result.paidAt,
-      payStatus: result.status,
-      receiptUrl: result.receiptUrl,
-    };
-
-    await fetch(tokenURL, {
+    // ✅ 토큰 저장
+    await fetch(gsURL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        mode: "saveToken",
+        token,
+        orderId,
+        goodsName,
+        amount,
+        payStatus: "결제완료",
+        payDate: new Date().toISOString(),
+      }),
     });
 
-    // ✅ 결제 완료 후 리디렉트
-    const redirectUrl = `https://easysaju.kr/thankyou.html?token=${token}`;
-    return Response.redirect(redirectUrl);
+    // ✅ Thankyou로 토큰만 전달
+    return Response.redirect(`https://easysaju.kr/thankyou.html?token=${token}`);
   }
 
+  // ✅ 실패 시 fail 페이지
   return Response.redirect("https://easysaju.kr/payment-fail.html");
 }
