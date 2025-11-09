@@ -27,16 +27,17 @@ export async function POST(req) {
     const gsURL = "https://script.google.com/macros/s/AKfycbwX6UPs_IaiyaHGMBdRrwUzoaAoe5EjM0JifNgw4K7DNPDX84QPfvwh16YAs0KhaRfx-g/exec"; // 🧩 여기에 Saju-Products-API URL 넣기
 
     await fetch(gsURL, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        mode: "saveToken",
-        token,
-        orderId,
-        goodsName,
-        amount,
-      }),
-    });
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    mode: "saveToken",
+    token,
+    orderId,
+    goodsName,
+    amount,
+  }),
+});
+
 
     const redirectUrl = `https://easysaju.kr/thankyou.html?token=${token}`;
     return Response.redirect(redirectUrl);
