@@ -25,7 +25,7 @@ export async function POST(req) {
       return Response.redirect("https://www.easysaju.kr/payment-fail.html");
     }
 
-    // ✅ NICEPAY 승인 API 요청
+    // NICEPAY 승인 API 요청
     const approve = await fetch(`https://api.nicepay.co.kr/v1/payments/${tid}`, {
       method: "POST",
       headers: {
@@ -37,7 +37,7 @@ export async function POST(req) {
 
     const result = await approve.json();
 
-    // ✅ 승인 성공 시
+    // 승인 성공 시
     if (result.resultCode === "0000") {
       const payload = {
         mode: "saveToken",
@@ -49,26 +49,27 @@ export async function POST(req) {
         receiptUrl: result.receiptUrl || "",
       };
 
-      // 1️⃣ 시트에 기록
+      // 1) 시트 기록
       await fetch(GAS_TOKEN_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-     });
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-      // 2️⃣ 암호화 토큰 생성 (thankyou.html에서 복호화 가능)
+      // 2) thankyou 토큰 생성
       const thankyouToken = sign(payload);
 
-      // 3️⃣ thankyou.html로 리디렉션
+      // 3) 성공 페이지 이동
       return Response.redirect(
         `https://www.easysaju.kr/thankyou.html?token=${thankyouToken}`
       );
     }
 
     // 승인 실패 시
-    return Response.redirect(""https://www.easysaju.kr/payment-fail.html");
+    return Response.redirect("https://www.easysaju.kr/payment-fail.html");
+
   } catch (err) {
     console.error("callback error:", err);
-    return Response.redirect(""https://www.easysaju.kr/payment-fail.html");
+    return Response.redirect("https://www.easysaju.kr/payment-fail.html");
   }
 }
