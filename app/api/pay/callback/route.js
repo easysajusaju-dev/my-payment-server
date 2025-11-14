@@ -61,7 +61,7 @@ export async function POST(req) {
 
       // 3️⃣ thankyou.html로 리디렉션
       return Response.redirect(
-        `"https://www.easysaju.kr/thankyou.html?token=${thankyouToken}`
+        `https://www.easysaju.kr/thankyou.html?token=${thankyouToken}`
       );
     }
 
