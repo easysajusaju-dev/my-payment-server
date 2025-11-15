@@ -24,7 +24,7 @@ export async function POST(req) {
 
     // 인증 실패 시
     if (authResultCode !== "0000") {
-      return Response.redirect("https://www.easysaju.kr/payment-fail.html");
+      return Response.redirect("https://easysaju-dev.vercel.app/payment-fail.html");
     }
 
     // NICEPAY 승인 API 요청
@@ -62,14 +62,14 @@ export async function POST(req) {
       const token = sign(payload);
 
       return Response.redirect(
-        `https://www.easysaju.kr/thankyou.html?token=${token}`
+        `https://easysaju-dev.vercel.app/thankyou.html?token=${token}`
       );
     }
 
     // 승인 실패
-    return Response.redirect("https://www.easysaju.kr/payment-fail.html");
+    return Response.redirect("https://easysaju-dev.vercel.app/payment-fail.html");
   } catch (err) {
     console.error("callback error:", err);
-    return Response.redirect("https://www.easysaju.kr/payment-fail.html");
+    return Response.redirect("https://easysaju-dev.vercel.app/payment-fail.html");
   }
 }
